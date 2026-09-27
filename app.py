@@ -171,8 +171,8 @@ def get_list():
 # 6. SYSTEM LIFECYCLE MANAGEMENT CLEANUP HOOK
 if __name__ == '__main__':
     try:
-        # Run Flask server locally on port 5000 to match HTML hardcoding maps
-        app.run(port=5000, debug=False)
+       port = int(os.environ.get("PORT", 10000))
+       app.run(host='0.0.0.0', port=port)
     finally:
         print("\n[SYSTEM] Shutting down. Terminating background C process...")
         try:
