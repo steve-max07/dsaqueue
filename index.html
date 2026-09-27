@@ -54,7 +54,7 @@
                 ailment: document.getElementById('ailment').value
             });
             
-            let res = await fetch('http://127.0.0.1:5000/api/register', { method: 'POST', body: params });
+            let res = await fetch('https://dsaqueue.onrender.com/api/register', { method: 'POST', body: params });
             let data = await res.json();
             if (data.id) {
                 alert("Registered! Assigned Token ID: " + data.id);
@@ -65,7 +65,7 @@
 
         // Trigger the C program to pop (dequeue) the next patient 
         async function callNext() {
-            let res = await fetch('http://127.0.0.1:5000/api/dequeue', { method: 'POST' });
+            let res = await fetch('https://dsaqueue.onrender.com/api/dequeue', { method: 'POST' });
             let data = await res.json();
             const box = document.getElementById('servingBox');
             box.style.display = 'block';
@@ -80,7 +80,7 @@
 
         // Fetch the full active waiting array layout from C via Python
         async function updateList() {
-            let res = await fetch('http://127.0.0.1:5000/api/list');
+            let res = await fetch('https://dsaqueue.onrender.com/api/list');
             let data = await res.json();
             document.getElementById('count').innerText = data.length;
             const container = document.getElementById('monitorBox');
