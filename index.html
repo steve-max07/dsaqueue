@@ -55,7 +55,7 @@
             });
             
             // FIXED: Added headers configuration so the webserver accurately processes the parameters
-            let res = await fetch('https://dsaqueue.onrender.com/api/register', { 
+            let res = await fetch('https://dsaqueue.onrender.com/api/register/', { 
                 method: 'POST', 
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
@@ -72,7 +72,7 @@
 
         // Trigger the C program to pop (dequeue) the next patient 
         async function callNext() {
-            let res = await fetch('https://dsaqueue.onrender.com/api/dequeue', { method: 'POST' });
+            let res = await fetch('https://dsaqueue.onrender.com/api/dequeue/', { method: 'POST' });
             let data = await res.json();
             const box = document.getElementById('servingBox');
             box.style.display = 'block';
@@ -88,7 +88,7 @@
         // Fetch the full active waiting array layout from C via Python
         async function updateList() {
             try {
-                let res = await fetch('https://dsaqueue.onrender.com/api/list');
+                let res = await fetch('https://dsaqueue.onrender.com/api/list/');
                 let data = await res.json();
                 document.getElementById('count').innerText = data.length;
                 const container = document.getElementById('monitorBox');
