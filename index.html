@@ -4,14 +4,58 @@
     <meta charset="UTF-8">
     <title>Hospital Queue</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; }
+        :root {
+            --bg-page: #f1f5f9;
+            --bg-card: #ffffff;
+            --primary: #007bff;
+            --primary-hover: #0056b3;
+            --danger: #dc3545;
+            --danger-hover: #bd2130;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
+            --info-bg: #fff3cd;
+            --info-border: #ffeeba;
+            --info-text: #856404;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            max-width: 800px; 
+            margin: 20px auto; 
+            padding: 0 20px; 
+            background-color: var(--bg-page);
+            color: var(--text-main);
+        }
         .grid { display: flex; gap: 20px; margin-bottom: 20px; }
-        .card { flex: 1; border: 1px solid #ccc; padding: 20px; border-radius: 8px; }
-        input, button { width: 100%; box-sizing: border-box; padding: 10px; margin-top: 10px; }
-        button { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button.doctor { background: #dc3545; }
-        .monitor { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 5px; min-height: 50px; }
+        .card { 
+            flex: 1; 
+            border: 1px solid var(--border); 
+            padding: 20px; 
+            border-radius: 8px; 
+            background: var(--bg-card);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        input, button { width: 100%; box-sizing: border-box; padding: 10px; margin-top: 10px; border-radius: 6px; }
+        input { border: 1px solid var(--border); background-color: #f8fafc; }
+        input:focus { outline: none; border-color: var(--primary); background-color: #fff; }
+        button { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        button:hover { background: var(--primary-hover); }
+        button.doctor { background: var(--danger); }
+        button.doctor:hover { background: var(--danger-hover); }
+        button:disabled { background: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
+        
+        .monitor { background: #f8f9fa; border: 1px solid var(--border); padding: 15px; border-radius: 5px; min-height: 50px; }
         .row { border-bottom: 1px solid #eee; padding: 8px 0; display: flex; justify-content: space-between; }
+        
+        .status-panel {
+            background-color: var(--info-bg);
+            border: 1px solid var(--info-border);
+            color: var(--info-text);
+            padding: 10px 12px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
@@ -26,15 +70,15 @@
                 <input type="text" id="name" placeholder="Patient Name" required>
                 <input type="number" id="age" placeholder="Age" required>
                 <input type="text" id="ailment" placeholder="Ailment" required>
-                <button type="submit">Get Token</button>
+                <button type="submit" id="regBtn">Get Token</button>
             </form>
         </div>
 
         <!-- 2. Doctor Actions -->
         <div class="card">
             <h3>🚨 Doctor Panel</h3>
-            <button class="doctor" onclick="callNext()">Call Next Patient</button>
-            <p id="servingBox" style="display:none; margin-top:15px; background:#fff3cd; padding:10px; border-radius:5px;"></p>
+            <button class="doctor" id="nextBtn" onclick="callNext()">Call Next Patient</button>
+            <p id="servingBox" class="status-panel" style="display:none;"></p>
         </div>
     </div>
 
@@ -45,63 +89,113 @@
     </div>
 
     <script>
-        // Send registration form data to Python via POST
+        const BASE_URL = "https://dsaqueue.onrender.com";
+
+        // WAKE UP SERVER IMMEDIATELY ON PAGE LOAD
+        window.onload = async () => {
+            const container = document.getElementById('monitorBox');
+            container.innerHTML = "<span style='color: var(--text-muted);'>⏳ Connecting to backend webserver... Waking up if asleep.</span>";
+            
+            try {
+                // Initial check-in call to trigger backend spin-up
+                await fetch(`${BASE_URL}/list`);
+                // If successful, populate the table immediately
+                updateList();
+            } catch (e) {
+                console.log("Server wake-up ping dispatched. Awaiting boot cycle...");
+            }
+
+            // Set up polling loop every 3 seconds to keep it live
+            setInterval(updateList, 3000);
+        };
+
+        // Send registration form data via POST
         document.getElementById('regForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const btn = document.getElementById('regBtn');
             const params = new URLSearchParams({
                 name: document.getElementById('name').value,
                 age: document.getElementById('age').value,
                 ailment: document.getElementById('ailment').value
             });
             
-            let res = await fetch('https://dsaqueue.onrender.com/api/register', { method: 'POST', body: params });
-            let data = await res.json();
-            if (data.id) {
-                alert("Registered! Assigned Token ID: " + data.id);
-                document.getElementById('regForm').reset();
-                updateList();
+            btn.innerText = "Connecting...";
+            btn.disabled = true;
+
+            try {
+                let res = await fetch(`${BASE_URL}/register`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params 
+                });
+                let data = await res.json();
+                if (data.id) {
+                    alert("Registered! Assigned Token ID: " + data.id);
+                    document.getElementById('regForm').reset();
+                    updateList();
+                }
+            } catch (error) {
+                alert("Server is still booting up. Please try again in a few seconds.");
+            } finally {
+                btn.innerText = "Get Token";
+                btn.disabled = false;
             }
         });
 
-        // Trigger the C program to pop (dequeue) the next patient 
+        // Trigger the program to pop (dequeue) the next patient 
         async function callNext() {
-            let res = await fetch('https://dsaqueue.onrender.com/api/dequeue', { method: 'POST' });
-            let data = await res.json();
+            const btn = document.getElementById('nextBtn');
             const box = document.getElementById('servingBox');
+            
+            btn.innerText = "Connecting...";
+            btn.disabled = true;
             box.style.display = 'block';
-            
-            if (data.status === 'called') {
-                box.innerHTML = `<strong>Now Treating:</strong> ${data.name} <br> <small>ID: ${data.id} | Age: ${data.age} | Reason: ${data.ailment}</small>`;
-            } else {
-                box.innerHTML = "<strong>Queue is empty.</strong> No patients waiting.";
+            box.innerHTML = "Processing request...";
+
+            try {
+                let res = await fetch(`${BASE_URL}/dequeue`, { method: 'POST' });
+                let data = await res.json();
+                
+                if (data.status === 'called') {
+                    box.innerHTML = `<strong>Now Treating:</strong> ${data.name} <br> <small>ID: ${data.id} | Age: ${data.age} | Reason: ${data.ailment}</small>`;
+                } else {
+                    box.innerHTML = "<strong>Queue is empty.</strong> No patients waiting.";
+                }
+                updateList();
+            } catch (error) {
+                box.innerHTML = "⚠️ Request timed out. Server is waking up. Try again shortly.";
+            } finally {
+                btn.innerText = "Call Next Patient";
+                btn.disabled = false;
             }
-            updateList();
         }
 
-        // Fetch the full active waiting array layout from C via Python
+        // Fetch active queue status
         async function updateList() {
-            let res = await fetch('https://dsaqueue.onrender.com/api/list');
-            let data = await res.json();
-            document.getElementById('count').innerText = data.length;
-            const container = document.getElementById('monitorBox');
-            
-            if (data.length === 0) {
-                container.innerHTML = "No patients currently waiting.";
-                return;
+            try {
+                let res = await fetch(`${BASE_URL}/list`);
+                let data = await res.json();
+                document.getElementById('count').innerText = data.length;
+                const container = document.getElementById('monitorBox');
+                
+                if (data.length === 0) {
+                    container.innerHTML = "No patients currently waiting.";
+                    return;
+                }
+                
+                container.innerHTML = data.map(p => `
+                    <div class="row">
+                        <span><strong>ID: ${p.id}</strong> - ${p.name} (${p.age} yrs)</span>
+                        <span style="color: var(--text-muted); font-style: italic;">${p.ailment}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                // If it crashes during an interval lookup while cold booting
+                if (document.getElementById('monitorBox').innerText.includes("Loading queue")) {
+                    document.getElementById('monitorBox').innerHTML = "<span style='color: var(--text-muted);'>⏳ Waking up queue instance...</span>";
+                }
             }
-            
-            container.innerHTML = data.map(p => `
-                <div class="row">
-                    <span><strong>ID: ${p.id}</strong> - ${p.name} (${p.age} yrs)</span>
-                    <span style="color:#666; font-style:italic;">${p.ailment}</span>
-                </div>
-            `).join('');
         }
-
-        // Automatically fetch and refresh the board display view every 3 seconds
-        setInterval(updateList, 3000);
-        updateList();
     </script>
-
 </body>
-</html
+</html>
